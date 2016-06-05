@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8; mode: Shell-script; fill-column: 76; tab-width: 4; -*-
+
+set -o errexit
+
+SHELL_DIR="$(cd "$(dirname "$0")"; pwd)"
+ROOT_DIR="$(cd "${SHELL_DIR}/../.."; pwd)"
+
+function log_title () { echo "-----> $*"; }
+function log_content () { echo "       $*"; }
+function log_footer () { log_content "[DONE]"; }
+function log_format () { sed -u 's/^/       /'; }
+
+log_title "Import the environment ..."
+ENV_FILE="${SHELL_DIR}/base.env"
+if [ -f "${ENV_FILE}" ]; then
+    source "${ENV_FILE}"
+else
+    log_content "[Error] The file [${ENV_FILE}] is not found."
+    exit 1
+fi
+ENV_FILE_CUSTOM="{ROOT_DIR}/project.env"
+if [ -f "${ENV_FILE_CUSTOM}" ]; then
+    source "${ENV_FILE_CUSTOM}"
+fi
+log_footer
+
+nohup sbcl --script ${ROOT_DIR}/web-launcher.lisp >> ${OPENSHIFT_LOG_DIR}/output.log 2>&1 &

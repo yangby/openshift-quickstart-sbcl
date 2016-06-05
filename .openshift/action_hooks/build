@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8; mode: Shell-script; fill-column: 76; tab-width: 4; -*-
+
+set -o errexit
+
+SHELL_DIR="$(cd "$(dirname "$0")"; pwd)"
+ROOT_DIR="$(cd "${SHELL_DIR}/../.."; pwd)"
+
+function log_title () { echo "-----> $*"; }
+function log_content () { echo "       $*"; }
+function log_footer () { log_content "[DONE]"; }
+function log_format () { sed -u 's/^/       /'; }
+
+log_title "Import the environment ..."
+ENV_FILE="${SHELL_DIR}/base.env"
+if [ -f "${ENV_FILE}" ]; then
+    source "${ENV_FILE}"
+else
+    log_content "[Error] The file [${ENV_FILE}] is not found."
+    exit 1
+fi
+ENV_FILE_CUSTOM="{ROOT_DIR}/project.env"
+if [ -f "${ENV_FILE_CUSTOM}" ]; then
+    source "${ENV_FILE_CUSTOM}"
+fi
+log_footer
+
+CACHE_DIR="${OPENSHIFT_TMP_DIR}/cache"
+
+sbcl_ver="${SBCL_VERSION:-sbcl-1.3.5-x86-64-linux}"
+sbcl_pkg="${sbcl_ver}-binary.tar.bz2"
+ql_file="quicklisp.lisp"
+
+function print_environment () {
+    log_title "Print environment variables ..."
+    log_content "        SHELL_DIR = ${SHELL_DIR}"
+    log_content "         ROOT_DIR = ${ROOT_DIR}"
+    log_content "        CACHE_DIR = ${CACHE_DIR}"
+    log_content "     VIRTUAL_ROOT = ${VIRTUAL_ROOT}"
+    log_footer
+}
+
+function install_sbcl () {
+    log_title "Installing SBCL ..."
+    local current_dir="$(pwd)"
+    log_content "Checking if SBCL has installed already ..."
+    which sbcl > /dev/null 2>&1
+    local ret=$?
+    if [ ${ret} -eq 0 ]; then
+        log_content "Checking version of the SBCL installed ..."
+        local ver_now=$(sbcl --version)
+        local ver_need=$(echo "${sbcl_ver}" | awk -F'-' '{ print "SBCL "$2 }')
+        if [ "${ver_now}" = "${ver_need}" ]; then
+            log_content "The version of SBCL installed is matched <${ver_now}>."
+            log_footer
+            return
+        else
+            log_content "The version of SBCL installed is <${ver_now}> but we need <${ver_need}>."
+        fi
+    else
+        log_content "Did not find SBCL."
+    fi
+    log_content "Downloading ${sbcl_pkg} ..."
+    [ -d "${VIRTUAL_ROOT}" ] && rm -rfv "${VIRTUAL_ROOT}" \
+        && mkdir -pv "${VIRTUAL_ROOT}" | log_format
+    mkdir -pv ${CACHE_DIR} | log_format
+    cd ${CACHE_DIR}
+    [ -d "sbcl" ] || mkdir sbcl | log_format
+    cd sbcl
+    [ -f "${sbcl_pkg}" ] || \
+        curl -L -o "${sbcl_pkg}" \
+             "http://prdownloads.sourceforge.net/sbcl/${sbcl_pkg}" \
+             2>&1 | log_format
+    bzip2 -cd ${sbcl_pkg} | tar xvf - | log_format
+    cd ${sbcl_ver}
+    SBCL_HOME="" INSTALL_ROOT="${VIRTUAL_ROOT}" sh install.sh 2>&1 | log_format
+    cd "${current_dir}"
+    log_footer
+}
+
+function install_quicklisp () {
+    log_title "Installing Quicklisp ..."
+    local current_dir="$(pwd)"
+    cd ${VIRTUAL_ROOT}
+    [ -f "${ql_file}" ] || \
+        curl -L -o "${ql_file}" \
+            "https://beta.quicklisp.org/${ql_file}" 2>&1 | log_format
+    cd "${current_dir}"
+    log_footer
+}
+
+function compile_sources () {
+    log_title "Compiling sources ..."
+    local current_dir="$(pwd)"
+    cd ${CACHE_DIR}
+    export ASDF_OUTPUT_TRANSLATIONS=/:
+    LANG=en_US.utf8 SBCL_HOME="${VIRTUAL_ROOT}/lib/sbcl" \
+        "${VIRTUAL_ROOT}/bin/sbcl" --script "${SHELL_DIR}/compile.lisp" \
+        "${ROOT_DIR}/" "${CACHE_DIR}/" "${VIRTUAL_ROOT}/" \
+        2>&1 | log_format
+    cd "${current_dir}"
+    log_footer
+}
+
+print_environment
+install_sbcl
+install_quicklisp
+compile_sources

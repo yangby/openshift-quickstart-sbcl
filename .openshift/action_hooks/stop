@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# -*- coding: utf-8; mode: Shell-script; fill-column: 76; tab-width: 4; -*-
+
+set -o errexit
+
+source ${OPENSHIFT_CARTRIDGE_SDK_BASH}
+
+_start_script="web-launcher.lisp"
+
+if [ -z "$(ps -ef | grep "${_start_script}" | grep -v grep)" ]; then
+    client_result "Application is already stopped."
+else
+    pid="$(ps -ef | grep "${_start_script}" | grep -v grep | awk '{ print $2 }')"
+    kill ${pid} > /dev/null 2>&1
+fi
