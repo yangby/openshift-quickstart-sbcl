@@ -54,7 +54,7 @@
 (log-content "Updating the Quicklisp client ...")
 (ql:update-client)
 (log-content "Updating packages from Quicklisp ...")
-(ql:update-all-dists)
+(ql-util:without-prompting (ql:update-all-dists))
 (log-footer "")
 
 (log-title "SBCL-Framework has been installed successfully.")
