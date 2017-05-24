@@ -36,7 +36,7 @@ system.
 tree to define environment variables.
 
 ```bash
-export SBCL_VERSION="sbcl-1.3.5-x86-64-linux"
+export SBCL_VERSION="sbcl-1.3.17-x86-64-linux"
 ```
 
 Write a file named _web-launcher.lisp_ in the root of your source tree for
